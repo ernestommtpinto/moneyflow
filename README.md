@@ -74,21 +74,8 @@ users/{userId}/transactions/{transactionId}
 users/{userId}/budgets/{budgetId}
 ```
 
-## Suggested next improvements
-
-These are great additions for your portfolio:
-
-1. Edit transactions
-2. Filter by month, category and type
-3. Demo account button
-4. Dark mode
-5. Currency selector
-6. Better empty states
-7. Form validation with React Hook Form
-8. Unit tests with Vitest
-9. Loading skeletons
 10. Portfolio case study page
 
-## Portfolio description
-
+Created by:
+Ernesto Pinto
 MoneyFlow is a responsive personal finance dashboard that helps users track income, expenses, budgets and spending insights. It uses Firebase Authentication and Firestore to provide user-specific real-time data, with charts and CSV export for financial analysis.
