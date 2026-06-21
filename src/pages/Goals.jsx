@@ -1,29 +1,100 @@
-import { useMemo, useState } from 'react';
-import { CalendarDays, PiggyBank, Target, WalletCards } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { CalendarDays, CheckCircle2, PiggyBank, Save, Target, WalletCards } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { db } from '../services/firebase';
 import { formatCurrency } from '../utils/finance';
 
 export default function Goals() {
+  const { user } = useAuth();
+
   const [goalAmount, setGoalAmount] = useState('');
   const [alreadySaved, setAlreadySaved] = useState('');
   const [months, setMonths] = useState('');
+  const [loadingGoal, setLoadingGoal] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    const loadGoal = async () => {
+      if (!user) return;
+
+      try {
+        setLoadingGoal(true);
+
+        const goalRef = doc(db, 'users', user.uid, 'goals', 'main');
+        const snapshot = await getDoc(goalRef);
+
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+
+          setGoalAmount(data.goalAmount ? String(data.goalAmount) : '');
+          setAlreadySaved(data.alreadySaved ? String(data.alreadySaved) : '');
+          setMonths(data.months ? String(data.months) : '');
+        }
+      } catch (error) {
+        console.error('Error loading goal:', error);
+      } finally {
+        setLoadingGoal(false);
+      }
+    };
+
+    loadGoal();
+  }, [user]);
 
   const result = useMemo(() => {
     const goal = Number(goalAmount) || 0;
-    const saved = Number(alreadySaved) || 0;
+    const savedAmount = Number(alreadySaved) || 0;
     const time = Number(months) || 0;
-    const remaining = Math.max(goal - saved, 0);
+    const remaining = Math.max(goal - savedAmount, 0);
     const monthly = time > 0 ? remaining / time : 0;
     const weekly = monthly / 4.345;
     const daily = monthly / 30.437;
-    const progress = goal > 0 ? Math.min(Math.round((saved / goal) * 100), 100) : 0;
+    const progress = goal > 0 ? Math.min(Math.round((savedAmount / goal) * 100), 100) : 0;
 
     const targetDate = new Date();
     if (time > 0) targetDate.setMonth(targetDate.getMonth() + time);
 
-    return { goal, saved, time, remaining, monthly, weekly, daily, progress, targetDate };
+    return {
+      goal,
+      saved: savedAmount,
+      time,
+      remaining,
+      monthly,
+      weekly,
+      daily,
+      progress,
+      targetDate,
+    };
   }, [goalAmount, alreadySaved, months]);
 
   const hasGoal = result.goal > 0 && result.time > 0;
+
+  async function saveGoal() {
+    if (!user) return;
+
+    try {
+      setSaving(true);
+      setSaved(false);
+
+      await setDoc(doc(db, 'users', user.uid, 'goals', 'main'), {
+        goalAmount: Number(goalAmount) || 0,
+        alreadySaved: Number(alreadySaved) || 0,
+        months: Number(months) || 0,
+        updatedAt: serverTimestamp(),
+      });
+
+      setSaved(true);
+
+      setTimeout(() => {
+        setSaved(false);
+      }, 3000);
+    } catch (error) {
+      console.error('Error saving goal:', error);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -39,6 +110,12 @@ export default function Goals() {
 
       <div className="grid xl:grid-cols-[0.9fr_1.1fr] gap-8">
         <div className="bg-white border border-slate-200 rounded-[2rem] shadow-sm p-7 space-y-6">
+          {loadingGoal && (
+            <div className="rounded-2xl bg-slate-50 border border-slate-100 px-4 py-3 text-sm font-semibold text-slate-500">
+              Loading your saved goal...
+            </div>
+          )}
+
           <label className="block">
             <span className="font-bold text-slate-800">Goal amount</span>
             <input
@@ -74,6 +151,22 @@ export default function Goals() {
               className="mt-3 w-full rounded-2xl border border-slate-200 px-5 py-4 text-lg outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-400"
             />
           </label>
+
+          <button
+            type="button"
+            onClick={saveGoal}
+            disabled={saving || loadingGoal}
+            className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 py-4 text-white font-bold shadow-lg shadow-blue-500/20 transition hover:opacity-90 active:scale-[0.99] disabled:opacity-60"
+          >
+            {saved ? <CheckCircle2 size={20} /> : <Save size={20} />}
+            {saving ? 'Saving...' : saved ? 'Saved goal' : 'Save Goal'}
+          </button>
+
+          {saved && (
+            <div className="rounded-2xl bg-emerald-50 border border-emerald-100 px-4 py-3 text-sm font-bold text-emerald-700">
+              Your goal was saved successfully.
+            </div>
+          )}
         </div>
 
         <div className="space-y-5">
@@ -84,7 +177,10 @@ export default function Goals() {
             </h2>
             <p className="mt-4 text-lg opacity-90">
               {hasGoal
-                ? `per month to reach your goal in ${result.targetDate.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' })}.`
+                ? `per month to reach your goal in ${result.targetDate.toLocaleDateString('pt-PT', {
+                    month: 'long',
+                    year: 'numeric',
+                  })}.`
                 : 'Enter your goal amount and timeframe to calculate your plan.'}
             </p>
 
@@ -94,7 +190,10 @@ export default function Goals() {
                 <span>{result.progress}%</span>
               </div>
               <div className="h-4 bg-white/25 rounded-full overflow-hidden">
-                <div className="h-full bg-white rounded-full transition-all" style={{ width: `${result.progress}%` }} />
+                <div
+                  className="h-full bg-white rounded-full transition-all"
+                  style={{ width: `${result.progress}%` }}
+                />
               </div>
             </div>
           </div>
