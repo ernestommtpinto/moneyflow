@@ -74,8 +74,6 @@ users/{userId}/transactions/{transactionId}
 users/{userId}/budgets/{budgetId}
 ```
 
-10. Portfolio case study page
-
 Created by:
 Ernesto Pinto
 MoneyFlow is a responsive personal finance dashboard that helps users track income, expenses, budgets and spending insights. It uses Firebase Authentication and Firestore to provide user-specific real-time data, with charts and CSV export for financial analysis.
